@@ -89,12 +89,16 @@ export default function Home() {
         >
           <Image
             aria-hidden
-            src="/globe.svg"
+            src="https://assets-global.website-files.com/6549d923a3a6761d8a709cf8/6549d923a3a6761d8a709d34_Gym%20topic%20for%20website%20(1)%20(1)%20(1).png"
             alt="Globe icon"
             width={16}
             height={16}
           />
           Go to turborepo.com →
+        </a>
+
+        <a className="bg-white">
+          hello
         </a>
       </footer>
     </div>
