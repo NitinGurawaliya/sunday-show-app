@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { sendOTP,verifyOTP } from "@/controllers/user.controller";
+import { sendOTP,verifyOtp } from "@/controllers/user.controller";
 
 const userRouter = Router();
 
 userRouter.post('/sendOtp',sendOTP)
-userRouter.post('/verifyOtp',verifyOTP)
+userRouter.post('/verifyOtp',verifyOtp)
 
 export default userRouter

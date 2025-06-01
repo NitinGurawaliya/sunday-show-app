@@ -1,8 +1,11 @@
 import { Request, Response } from "express";
 import dotenv from "dotenv";
-import jwt from "jsonwebtoken";
 import twilio from "twilio";
 import { PrismaClient } from "@prisma/client";
+import { apiStatusCodes } from "@/constants";
+import { getUserByMobileNumber,addUserToDB } from "@/query";
+import { generateToken,createSession,verifyOTPCode, sendAPIResponse } from "@/utils";
+
 
 dotenv.config();
 const prisma = new PrismaClient();
@@ -24,55 +27,63 @@ export const sendOTP = async (req: Request, res: Response): Promise<any> => {
     return res.json({ msg: "OTP sent", sid: verification.sid });
   } catch (err) {
     console.error("Twilio Error:", err);
-    return res.status(500).json({ msg: "Failed to send OTP" });
+    return res.status(apiStatusCodes.BAD_REQUEST).json({ msg: "Failed to send OTP" });
   }
 };
 
-export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
-  const { phone, code } = req.body;
-
-  if (!phone || !code) return res.status(400).json({ msg: "Phone and code required" });
-
-  try {
-    const verificationCheck = await client.verify.v2
-      .services(process.env.TWILIO_VERIFY_SID!)
-      .verificationChecks.create({ to: phone, code });
-
-    if (verificationCheck.status === "approved") {
-      // Check if user exists or create new //also convert it to a util function
-      let user = await prisma.user.findUnique({ where: { phoneNumber: phone } });
-      if (!user) {
-        user = await prisma.user.create({
-          data: { phoneNumber: phone },
-        });
-      }
-
-      // Create JWT token  //convert this to a util function
-      const token = jwt.sign({ userId: user.id, phone }, process.env.JWT_SECRET!, {
-        expiresIn: "30d",
-      });
-
-      // Create session with 30 days expiry
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
 
 
-      //convert this to a query function 
-      await prisma.session.create({
-        data: {
-          userId: user.id,
-          token,
-          expiresAt,
-        },
-      });
+export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
+  const { phoneNumber, code } = req.body;
 
-      //convert api responses to a util functions
-      return res.json({ msg: "OTP verified", token });
-    } else {
-      return res.status(401).json({ msg: "Invalid OTP" });
-    }
-  } catch (err) {
-    console.error("Verification Error:", err);
-    return res.status(500).json({ msg: "OTP verification failed" });
+  if (!phoneNumber || !code) {
+    return res.status(apiStatusCodes.BAD_REQUEST).json(
+      sendAPIResponse({
+        status: false,
+        error: 'Phone number and code are required',
+        message: 'Validation error',
+      })
+    );
   }
+
+  const { status: otpVerified, error: otpError } = await verifyOTPCode(phoneNumber, code);
+
+  if (!otpVerified) {
+    return res.status(apiStatusCodes.UNAUTHORIZED).json(
+      sendAPIResponse({
+        status: false,
+        error: otpError,
+        message: 'OTP verification failed',
+      })
+    );
+  }
+
+  let { data: userData } = await getUserByMobileNumber(phoneNumber);
+
+  if (!userData) {
+    const { data: newUser, error: createError } = await addUserToDB({ phoneNumber });
+    if (createError || !newUser) {
+      return res.status(apiStatusCodes.INTERNAL_SERVER_ERROR).json(
+        sendAPIResponse({ status: false, error: createError, message: 'User creation failed' })
+      );
+    }
+    userData = newUser;
+  }
+
+  const token = generateToken(userData.id, phoneNumber);
+
+  const sessionResult = await createSession(userData.id, token);
+  if (!sessionResult.success) {
+    return res.status(apiStatusCodes.INTERNAL_SERVER_ERROR).json(
+      sendAPIResponse({ status: false, error: sessionResult.error, message: 'Session creation failed' })
+    );
+  }
+
+  return res.status(apiStatusCodes.OKAY).json(
+    sendAPIResponse({
+      status: true,
+      data: token,
+      message: 'OTP verified successfully',
+    })
+  );
 };

@@ -1,3 +1,3 @@
 export interface AddUserRequestPayload{
-    phoneNumber:string
+    phoneNumber:string;
 }
