@@ -11,11 +11,11 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN!
 );
 
-export const generateToken = (userId: string, phoneNumber: string): string => {
+ const generateToken = (userId: string, phoneNumber: string): string => {
   return jwt.sign({ userId, phoneNumber }, process.env.JWT_SECRET!, { expiresIn: "30d" });
 };
 
-export const createSession = async (userId: string, token: string): Promise<{ success: boolean, error?: string }> => {
+ const createSession = async (userId: string, token: string): Promise<{ success: boolean, error?: string }> => {
   try {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
@@ -36,7 +36,7 @@ export const createSession = async (userId: string, token: string): Promise<{ su
 };
 
 
-export const verifyOTPCode = async (
+ const verifyOTPCode = async (
   phoneNumber: string,
   code: string
 ): Promise<{ status: "approved" | "failed"; error?: string }> => {
@@ -55,6 +55,14 @@ export const verifyOTPCode = async (
   }
 };
 
-export const sendAPIResponse = ({ status, error, message, data }: APIResponseType) => {
+ const sendAPIResponse = ({ status, error, message, data }: APIResponseType) => {
   return { status, error, message, data };
 };
+
+
+export{
+  sendAPIResponse,
+  verifyOTPCode,
+  generateToken,
+  createSession
+}
